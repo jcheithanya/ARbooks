@@ -1,0 +1,7 @@
+---
+
+# Run playbook on jumpBox value specified in parent flow
+- hosts: jumpBox
+  roles:
+# Initiate role task to run PS script
+    - role: sql/accessProvision

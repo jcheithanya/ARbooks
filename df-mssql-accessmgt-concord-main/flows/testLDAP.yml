@@ -1,0 +1,50 @@
+  testLDAP:
+  - set: { workflowName: "testLDAP" }
+
+  - set:
+      #emailID: "warpdbalerts@email.wal-mart.com"
+      #emailID: "gtp-fc-df@wal-mart.com"
+      emailID: "utasie@homeoffice.wal-mart.com"
+      #emailID: "SQLServer-IaaS@email.wal-mart.com"
+      #emailID: "gtp-df-azuresql@wal-mart.com"
+
+  - script: groovy
+    body: |
+      def emailDL = execution.getVariable("emailID");
+      def emailDLTeam = emailDL.split("@")[0];
+      execution.setVariable('supportTeam', emailDLTeam);
+  - log: "supportTeam: ${supportTeam}"
+
+  - try:
+    - task: ldap
+      in:
+        action: getGroup
+        searchBase: "DC=homeoffice,DC=Wal-Mart,DC=com"
+        group: ${supportTeam}
+        securityEnabled: false
+        ldapAdServer: "ldap://homeoffice.Wal-Mart.com:3268"
+        bindUserDn: "CN=SQL Build,OU=ProcessIDs,OU=IDM,DC=homeoffice,DC=Wal-Mart,DC=com" #OU for svcsqlbuild acct
+        bindPassword: ${crypto.decryptString("Jh2FXOsIEfEZSMMRG2XVRo4puiD5KoMoFZdFrrDma6o=")} #pwd for svcsqlbuild acct
+        out: getUserResult
+    - log: "getUserResult for group = ${getUserResult}"
+    - if: ${getUserResult.result.attributes.groupType != '8'}
+      then:
+        - log: "Error finding ${supportTeam} in groups. Trying getUser."
+        - task: ldap
+          in:
+            action: getUser
+            searchBase: "DC=homeoffice,DC=Wal-Mart,DC=com"
+            user: ${supportTeam}
+            securityEnabled: false
+            ldapAdServer: "ldap://homeoffice.Wal-Mart.com:3268"
+            bindUserDn: "CN=SQL Build,OU=ProcessIDs,OU=IDM,DC=homeoffice,DC=Wal-Mart,DC=com" #OU for svcsqlbuild acct
+            bindPassword: ${crypto.decryptString("Jh2FXOsIEfEZSMMRG2XVRo4puiD5KoMoFZdFrrDma6o=")} #pwd for svcsqlbuild acct
+            out: getUserResult
+        - log: "getUserResult for user = ${getUserResult}"
+        - if: ${getUserResult.result.attributes.groupType != '8'}
+          then:
+            - log: "Error finding ${supportTeam} in users. Will just pass the string."
+            - throw: "Error finding ${emailID} ldap in groups. Not a Distribution List."
+    error:
+      - log: "Error finding ${supportTeam} in users. Will just pass the string."
+      - throw: "Error in ldap task to find email DL."

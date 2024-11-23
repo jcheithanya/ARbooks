@@ -1,0 +1,50 @@
+---
+
+#- name: Validate existance of postinstall directory
+#  win_file:
+#    path: G:\AutoAccess
+#    state: directory
+#- name: Copy postinstall files from repo to local G drive
+#  win_copy:
+#    src: "{{ item }}"
+#    dest: G:\AutoAccess
+#  with_items:
+#    - "autoAccessProvision/accessprovision_testAnsible.ps1"
+
+- name: Execute autoaccess process
+  win_shell: |
+    try
+    {
+        $svcAcctPwd = '{{ ansible_password }}'
+        $securePwd   = ConvertTo-SecureString $svcAcctPwd -AsPlainText -Force
+        $cred = New-Object -TypeName System.Management.Automation.PSCredential ("HOMEOFFICE\svcsqlbuild",$securePwd)
+
+        $Script = "G:\SQLServer-SelfService-Scripts\Access_Provision_Utility\accessprovision.ps1 -S '{{ ServerName }}' -dbname ""{{ Database }}"" -T '{{ Task }}' -auth '{{ Authentication }}' -login '{{ Login }}' -pwd '{{ Password }}' -reset '{{ ResetLogin }}' -oldpwd '{{ OldPassword }}' -newpwd '{{ NewPassword }}' -acces ""{{ access }}"" -emailDL '{{ alertEmail }}' -jira '{{ JiraTicket }}' -svcAcctCred $cred -initiatorId '{{ initiatorId }}' -ServerEnv '{{ Environment }}' -crq '{{ crqNumber }}' | Tee-Object -Variable provisionStatus -ErrorAction stop"
+        Write-Host "Script: $Script"
+
+        G:\SQLServer-SelfService-Scripts\Access_Provision_Utility\accessprovision.ps1 -S '{{ ServerName }}' -dbname "{{ Database }}" -T '{{ Task }}' -auth '{{ Authentication }}' -login '{{ Login }}' -pwd '{{ Password }}' -reset '{{ ResetLogin }}' -oldpwd '{{ OldPassword }}' -newpwd '{{ NewPassword }}' -acces "{{ access }}" -emailDL '{{ alertEmail }}' -jira '{{ JiraTicket }}' -svcAcctCred $cred -initiatorId '{{ initiatorId }}' -ServerEnv '{{ Environment }}' -crq '{{ crqNumber }}' | Tee-Object -Variable provisionStatus -ErrorAction stop
+        $stdOutFile = ".\Output.txt"
+        out-file $stdOutFile -InputObject $provisionStatus
+    }
+    catch
+    {
+        $errorTxt = $error[0].Exception.Message
+        Write-Host "provision error: $errorTxt"
+    }
+
+#- name: Execute autoaccess process
+#  win_shell: G:\Access_Provision_Utility\accessprovision_ansible.ps1 -S '{{ ServerName }}' -Dbname '{{ Database }}' -T '{{ Task }}' -auth '{{ Authentication }}' -login '{{ Login }}' -pwd '{{ Password }}' -reset '{{ ResetLogin }}' -oldpwd '{{ OldPassword }}' -newpwd '{{ NewPassword }}' -acces '{{ access }}' -emailDL '{{ alertEmail }}' -jira '{{ JiraTicket }}'
+  args:
+    chdir: G:\Access_Provision_Utility
+  register: queryOut
+  become_method: runas
+  become_flags: logon_type=new_credentials logon_flags=netcredentials_only
+  vars:
+   ansible_become: true
+   ansible_become_user: "{{ ansible_user }}"
+   ansible_become_password: "{{ ansible_password }}"
+  no_log: true
+
+- name: Try to output query in debug
+  debug:
+    msg: "{{ queryOut.stdout_lines }}"

@@ -1,0 +1,46 @@
+  transitionJIRA:
+    - try:
+      - log: "Provided JIRA Number - ${ jiraIssueId }" #issueId
+      - log: "action: transition"
+      - log: "userId: ${iraUid}"
+      - log: "issueKey: ${jiraIssueId}"
+      - log: "transitionId: ${transitionId}"
+      - log: "transitionComment: ${jiraComment}"
+
+      - if: ${transitionId == 321} # TRANSITION TO DONE
+        then:
+          - try:
+            - task: jira
+              in:
+                action: transition
+                userId: ${iraUid}
+                password: ${jiraPwd}
+                issueKey: ${jiraIssueId}
+                transitionId: ${transitionId}
+                transitionComment: "${jiraComment}"
+                customFieldsTypeFieldAttr:
+                  customfield_11607:
+                    value: "Task Completed"
+            error:
+              - log: ${jiraComment}
+              - log: "Transition Failed. In Error block: ${lastError}"
+              - log: "Last error cause: ${lastError.cause}"
+              - log: "Last error message: ${lastError.message}"
+
+
+      - if: ${transitionId == 311} # TRANSITION TO WIP
+        then:
+          - try:
+            - task: jira
+              in:
+                action: transition
+                userId: ${iraUid}
+                password: ${jiraPwd}
+                issueKey: ${jiraIssueId}
+                transitionId: ${transitionId}
+                transitionComment: "${jiraComment}"
+            error:
+              - log: ${jiraComment}
+              - log: "Transition Failed. In Error block: ${lastError}"
+              - log: "Last error cause: ${lastError.cause}"
+              - log: "Last error message: ${lastError.message}"

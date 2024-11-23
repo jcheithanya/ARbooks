@@ -1,0 +1,74 @@
+  validateChangeControl:
+    - try:
+      - log: "Provided change control - ${ changeRecordId }"
+
+      # Servicenow global variables
+      - set:
+          retryMax:             5
+          retryDuration:        10
+          rateLimitRetryDuration: 60
+
+      # Checking if provided change control is valid change control
+      - task: servicenow
+        in:
+          action:                 validateChange
+          changeRecordId:         ${ changeRecordId }
+          retryMax:               ${ retryMax }
+          retryDuration:          ${ retryDuration }
+          rateLimitRetryDuration: ${ rateLimitRetryDuration }
+        out:
+          resultValidateChange: ${ result.data }
+
+      - log: "resultValidateChange: ${ resultValidateChange }"
+
+      - if: ${ !resultValidateChange.isValid  }
+        then:
+          - set:
+              jiraComment: "Provided change control is not in a valid state.\n"
+              finalStatus: "Provided change control is not in a valid state"
+          - throw: "Provided change control is not in a valid state"
+
+      # Get provided change control details
+      - task: servicenow
+        in:
+          action:                 getChange
+          changeRecordId:         ${ changeRecordId }
+          retryMax:               ${ retryMax }
+          retryDuration:          ${ retryDuration }
+          rateLimitRetryDuration: ${ rateLimitRetryDuration }
+        out:
+          resultGetChange: ${ result.data }
+
+      # Checking if provided Provided change control is in Implement state
+      - log: "Provided change control state is ${ resultGetChange.State }"
+
+      - if: ${ resultGetChange.State != 'Implement' }
+        then:
+          - set:
+              jiraComment: "Provided change control not in Implement state.\n"
+              finalStatus: "Provided change control not in Implement state"
+          - throw: "Provided change control not in Implement state"
+
+      # Checking if provided change control is within the current time window
+      - set:
+          currentEpochTime: "${ datetime.current().toInstant().toEpochMilli() }"
+      - if: ${ currentEpochTime > resultGetChange.planned_start_epoch && currentEpochTime < resultGetChange.planned_end_epoch }
+        then:
+          - log: "Provided change control is in the change window"
+        else:
+          - set:
+              jiraComment: "Provided change control is outside the change window.\n"
+              finalStatus: "Provided change control is outside the change window"
+          - throw: "Provided change control is outside the change window"
+
+      error:
+        - set:
+            jiraComment: "${jiraComment}\n{color:#DE350B}*Provided change control validation FAILED.*{color}\n"
+        - call: transitionJIRA
+          in:
+            iraUid: ${iraUid}
+            jiraPwd: ${jiraPwd}
+            jiraIssueId: ${jiraIssueId}
+            transitionId: 321
+            jiraComment: ${jiraComment}
+        - throw: "Provided change control validation FAILED"

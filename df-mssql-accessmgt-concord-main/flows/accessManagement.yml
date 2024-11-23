@@ -1,0 +1,715 @@
+  accessManagement:
+  - set: { workflowName: "accessManagement" }
+  - set:
+      encryptedtext: "test"
+      finalStatus: ""
+      throwError: "No"
+      generateTicketOnly: "false"
+      issueId: "undefined"
+      myFormFields:
+      - argBackupStatus: {type: "string"}
+      jiraComment:
+      jiraconfig:
+        jiraUrl:  "https://jira.walmart.com"
+        jiraIssueTypeId: 15
+        jiraPriority: 6
+        #jiraRequestorUid: "${initiator.username}"
+        jiraRequestorUid: "${argUserName}" #passed from UI
+        jiraSummary: "SQL Server Access Request"
+        jiraDescription: ""
+        #jiraPwd: ${crypto.exportAsString('sqlserver', 'svcSQLAutomationPass', null)}
+        #jiraUid: "svcSQLAutomation"
+        jiraPwd:  ${crypto.decryptString("Jh2FXOsIEfEZSMMRG2XVRo4puiD5KoMoFZdFrrDma6o=")} 
+        jiraUid: "svcsqlbuild" 
+        jiraProjectKey: "PGPTOOLS"
+
+  - log: "Starting..."
+
+  ### Set as empty string if not var is not set on DX. Cannot be set above as 'arguments' is on concord.yml ##
+  ## Tasks values are gotten directly from DX Console form
+  - if: ${argEnvironment == 'Non-Production'}
+    then:
+      - set:
+          argCRQ: ""
+
+  - if: ${argTask == 'New or Modify Access'}
+    then:
+      - set:
+         jiraTaskLabel: "SQL-Access-Auto"
+         argResetTask: ""
+         argResetLogin: ""
+         argOldPassword: ""
+         argNewPassword: ""
+         argConfirmNewPassword: ""
+      - if: ${argAuthentication == 'Windows(AD)Authentication'}
+        then:
+          - set:
+              argPassword: ""
+              argConfirmPassword: ""
+              argAlertEmail: ""
+      - if: ${argAuthentication == 'SQL Server Authentication' && argIsNewLogin == 'New'}
+        then:
+          - set:
+              generateTicketOnly: "true"
+              finalStatus: "SQL Authentication logins are no longer available to request by default. This will be subject to DBA review and approval."
+      #set requestTask
+      - if: ${argIsNewLogin == 'New'}
+        then:
+          - set:
+              requestTask: "new"
+      - if: ${argIsNewLogin == 'Modify'}
+        then:
+          - set:
+              requestTask: "modify"
+              argAlertEmail: ""
+
+  - if: ${argTask == 'Reset Password'}
+    then:
+      - set:
+          argDatabase: ""
+          argPassword: ""
+          argConfirmPassword: ""
+          argdbRole1: ""
+          argLogin: ""
+          argIsNewLogin: ""
+          argAuthentication: ""
+          argAlertEmail: ""
+          argResetLogin: ""
+      - if: ${argResetTask == 'Reset SQL Password'}
+        then:
+          - set:
+              jiraTaskLabel: "SQL-PasswordReset-Auto"
+              requestTask: "reset"
+
+      - if: ${argResetTask == 'Reset Proxy Credential Password'}
+        then:
+          - set:
+              jiraTaskLabel: "SQL-ProxyCredReset-Auto"
+              requestTask: "resetProxy"
+
+      - if: ${argResetTask == 'Reset Linked Server Password'}  ## Reset Linked Server Password Phase 1 ticket creation logic
+        then:
+          - set:
+              argOldPassword: ""
+              argResetLogin: ""
+              argNewPassword: ""
+              #jiraTaskLabel: "SQL-LnkSrvCredReset-Auto"
+              #requestTask: "resetLinkedServer"                ## Task which triggers the actual logic
+          - try:
+            - task: jira        ## creating jira here
+              in:
+                apiUrl: "https://jira.walmart.com/rest/api/2/"
+                action: createIssue
+                userId: "SVC_firstcontact"     ##FC Service account UserID
+                password: ${crypto.decryptString("HQvw7kL2rcSC5g3JlBqt1MQRrEgnoTvA3m78pgNM1VI=")}   ##FC Service account password
+                #assignee:
+                #name: ${jiraconfig.jiraUid}
+                projectKey: "PGPTOOLS"
+                summary: "Reset Linked Server Password"
+                description: |
+                              *Server details* - ${argServerName} 
+                              *Linked Server detail* - ${argLinkedServerName} 
+                              *Remote login details* -${argResetLoginUser} 
+                              *Additional details* - ${argAdditionalServer}
+                              ${argCRQ}
+                requestorUid: ${jiraconfig.jiraRequestorUid}
+                issueType: "Support Ticket"
+                priority: "P3"
+                components: 
+                     - name: "sqlserver"
+                labels: ["SQL-LnkSrvCredReset-Auto", "sqlconcord"]
+                customFieldsTypeFieldAttr:
+                   customfield_10212:
+                     value: "Production"
+                   customfield_21257: "FC Concord Automation"
+                out: result
+ 
+            - task: jira
+              in:
+                action: addComment
+                apiUrl: "https://jira.walmart.com/rest/api/2/" 
+                userId: "SVC_firstcontact"  
+                password: ${crypto.decryptString("HQvw7kL2rcSC5g3JlBqt1MQRrEgnoTvA3m78pgNM1VI=")}
+                issueKey: ${issueId}
+                comment: |
+                       HI *${argUserName}*, This ticket is open though JIRA automation process to *Reset Linked Server Password*
+                       Please send the password though https://passpass.walmart.com/ once the ticket is assigned.
+                       Further communication will continue here by our Support Engineer.
+                       Thanks
+                       *First Contact!!*   
+
+            error:
+              - set:
+                  issueId: "undefined"
+                  finalStatus: "ticket is not created"
+              - log: "Error creating JIRA ticket ${issueId}: ${lastError}. Continuing..."
+              - log: "Last error cause: ${lastError.cause}"
+              - log: "Last error message: ${lastError.message}"
+              - log: "JIRA Issue ID: ${issueId}"  
+
+          - log: "JIRA Issue ID: ${issueId}"     
+
+          - exit
+
+
+
+  #Now Log inputs
+  - log: "Server - ${argServerName}"
+  - log: "Database - ${argDatabase}"
+  - log: "Login - ${argLogin}"
+  - log: "Task - ${argTask}"
+  - log: "resetTask - ${argResetTask}"
+  - log: "Is New Login - ${argIsNewLogin}"
+  - log: "Authentication - ${argAuthentication}"
+  #- log: "Password - ${argPassword}"
+  #- log: "setExpire - ${argExpire}"
+  - log: "argdbRole1 - ${argdbRole1}"
+  - log: "ResetLogin: ${argResetLogin}"
+  - log: "User Name: ${jiraconfig.jiraRequestorUid}"
+  - log: "AlertEmail: ${argAlertEmail}"
+  - log: "argIsNewLogin - ${argIsNewLogin}"
+  - log: "argEnvironment - ${argEnvironment}"
+  - log: "argCRQ - ${argCRQ}"
+  - log: "argLinkedServerName - ${argLinkedServerName}"
+  - log: "argAdditionalServer - ${argAdditionalServer}" 
+
+  - set:
+         roles: "${argdbRole1}"
+         aesPassword: "xxxxxxxxxxxxxxxx${argPassword}"
+         aesOldPassword: "xxxxxxxxxxxxxxxx${argOldPassword}"
+         aesNewPassword: "xxxxxxxxxxxxxxxx${argNewPassword}"
+         aeskey: ${crypto.decryptString("WM+hlB+1VZ87SaoDX3n8+MQRrEgnoTvA3m78pgNM1VI=")}
+
+  - script: groovy
+    body: |
+        import javax.crypto.spec.SecretKeySpec;
+        import javax.crypto.spec.IvParameterSpec;
+        import javax.crypto.Cipher
+        class Crypter {
+            // Key must be exactly 16 bytes
+            def expandKey (def secret) {
+                for (def i=0; i<4; i++) {
+                    secret += secret
+                }
+                return secret.substring(0, 16)
+            }
+            // do the magic
+            def encrypt (def plainText, def secret) {
+                secret = expandKey(secret)
+                def cipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "SunJCE")
+                SecretKeySpec key = new SecretKeySpec(secret.getBytes("UTF-8"), "AES")
+                cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(secret.getBytes("UTF-8")))
+                return cipher.doFinal(plainText.getBytes("UTF-8")).encodeBase64().toString()
+            }
+        }
+        def c = new Crypter()
+        def plainBond = execution.getVariable('aesPassword')
+        def plainBond2 = execution.getVariable('aesOldPassword')
+        def plainBond3 = execution.getVariable('aesNewPassword')
+        def secret = execution.getVariable('aeskey')
+        def encryptedBond = c.encrypt(plainBond, secret)
+        execution.setVariable('encryptedtext', encryptedBond)
+        def encryptedBond2 = c.encrypt(plainBond2, secret)
+        execution.setVariable('encryptedOldPassword', encryptedBond2)
+        def encryptedBond3 = c.encrypt(plainBond3, secret)
+        execution.setVariable('encryptedNewPassword', encryptedBond3)
+  #- script: scripts/AES.groovy
+    error:
+    - log: "Groovy AES script failed!!!"
+  - log: "The encrypted text for password is: ${encryptedtext}"
+  - log: "The encrypted text for OLD password is: ${encryptedOldPassword}"
+  - log: "The encrypted text for NEW password is: ${encryptedNewPassword}"
+
+
+  #INITIAL CHECKS
+
+  # Check if email Distribution List:
+  - if: ${requestTask == 'new' && argAuthentication == 'SQL Server Authentication'}
+    then:
+      - set:
+          emailID: ${argAlertEmail}
+      - script: groovy
+        body: |
+          def emailDL = execution.getVariable("emailID");
+          def emailDLTeam = emailDL.split("@")[0];
+          execution.setVariable('supportTeam', emailDLTeam);
+      - log: "supportTeam: ${supportTeam}"
+      - try:
+        - task: ldap
+          in:
+            action: getGroup
+            searchBase: "DC=homeoffice,DC=Wal-Mart,DC=com"
+            group: ${supportTeam}
+            securityEnabled: false
+            ldapAdServer: "ldap://homeoffice.Wal-Mart.com:3268"
+            bindUserDn: "CN=SQL Build,OU=ProcessIDs,OU=IDM,DC=homeoffice,DC=Wal-Mart,DC=com" #OU for svcsqlbuild acct
+            bindPassword: ${jiraconfig.jiraPwd} #pwd for svcsqlbuild acct
+            out: getUserResult
+        #- log: "getUserResult for group = ${getUserResult}"
+        - if: ${getUserResult.result.attributes.groupType != '8'}
+          then:
+            - log: "Error finding ${supportTeam} in groups. Trying getUser."
+            - task: ldap
+              in:
+                action: getUser
+                searchBase: "DC=homeoffice,DC=Wal-Mart,DC=com"
+                user: ${supportTeam}
+                securityEnabled: false
+                ldapAdServer: "ldap://homeoffice.Wal-Mart.com:3268"
+                bindUserDn: "CN=SQL Build,OU=ProcessIDs,OU=IDM,DC=homeoffice,DC=Wal-Mart,DC=com" #OU for svcsqlbuild acct
+                bindPassword: ${jiraconfig.jiraPwd} #pwd for svcsqlbuild acct
+                out: getUserResult
+            #- log: "getUserResult for user = ${getUserResult}"
+            - if: ${getUserResult.result.attributes.groupType != '8'}
+              then:
+                - log: "Error finding ${supportTeam} as a gropu in getUser"
+                #- set:
+                    #finalStatus: "${argAlertEmail} is not a Distribution List. Please provide your team's email DL"
+                - throw: "Throwing to error block: Error finding ${argAlertEmail} in ldap groups. Not a Distribution List."
+        error:
+          - log: "Error finding ${supportTeam} in users."
+          - set:
+              finalStatus: "${argAlertEmail} not found as a Distribution List. Please provide your team's email DL"
+          - throw: "Throwing error finding ${argAlertEmail} in ldap groups. Not a Distribution List."
+
+  #Check password matches
+  - if: ${argPassword != ""}
+    then:
+      - if: ${argPassword != argConfirmPassword}
+        then:
+          - log: "Password & Confirm Password fields do not match"
+          - set:
+              finalStatus: "Password & Confirm Password fields do not match"
+          - throw: "Password & Confirm Password fields do not match"
+
+  - if: ${argNewPassword != ""}
+    then:
+      - if: ${argNewPassword != argConfirmNewPassword}
+        then:
+          - log: "Password & Confirm Password fields do not match"
+          - set:
+              finalStatus: "Password & Confirm Password fields do not match"
+          - throw: "Password & Confirm Password fields do not match"
+
+#  - call: jiraCreateTicket
+#    in:
+#      jiraArgs:
+#        summary:     "Please fix your stuff"
+#        description: "Requested by ${initiator.username}"
+#        environment: "Production"
+#        components:  "STRATI - SQL Server - DevOps L2"
+
+
+  - script: groovy
+    body: |
+      def jiraconfig = execution.getVariable("jiraconfig");
+      jiraconfig.jiraSummary = "SQL Server Access Request".toString();
+      jiraconfig.jiraDescription = "SQL Server request details:\n" +
+            "* *Server Name*: ${argServerName}\n" +
+            "* *Database Name*: ${argDatabase}\n" +
+            "* *Task*: ${requestTask}\n" +
+            "* *Env*: ${argEnvironment}\n"
+  - if: ${argEnvironment == "Production"}
+    then:
+      - script: groovy
+        body: |
+          jiraconfig.jiraDescription = jiraconfig.jiraDescription +
+              "* *Change Request*: ${argCRQ}\n";
+  - if: ${argLogin != ""}
+    then:
+      - script: groovy
+        body: |
+          jiraconfig.jiraDescription = jiraconfig.jiraDescription +
+              "* *Authentication*: ${argAuthentication}\n" +
+              "* *Login*: ${argLogin}\n" +
+              "* *Role(s)*: ${roles}\n";
+  - if: ${requestTask == 'new' && argAuthentication == 'SQL Server Authentication'}
+    then:
+      - script: groovy
+        body: |
+          jiraconfig.jiraDescription = jiraconfig.jiraDescription +
+              "* *Password Expiry Email*: ${argAlertEmail}\n";
+  - if: ${argResetLogin != ""}
+    then:
+      - script: groovy
+        body: |
+          jiraconfig.jiraDescription = jiraconfig.jiraDescription +
+              "* *Login to reset*: ${argResetLogin}\n";
+  - if: ${generateTicketOnly == "true"}
+    then:
+      - script: groovy
+        body: |
+          jiraconfig.jiraDescription = jiraconfig.jiraDescription +
+              "\n\n* *FOR DBA TEAM ONLY:* Please use the AccessMgmt teamform after reviewing request: http://concord.prod.walmart.com/api/v1/org/sqlserver/project/df-mssql-accessmgt-concord/repo/df-mssql-accessmgt-concord-Teamform/start/accessManagement\n";
+  - log: "jiraSummary: ${jiraconfig.jiraSummary}"
+  - log: "jiraDescription: ${jiraconfig.jiraDescription}"
+
+
+  - try:
+    - task: jira
+      in:
+        action: createIssue
+        userId: ${jiraconfig.jiraUid}
+        password: ${jiraconfig.jiraPwd}
+        #assignee:
+          #name: ${jiraconfig.jiraUid}
+        projectKey: "PGPTOOLS"
+        summary: ${jiraconfig.jiraSummary}
+        description: ${jiraconfig.jiraDescription}
+        requestorUid: ${jiraconfig.jiraRequestorUid}
+        issueType: "Support Ticket"
+        priority: "P3"
+        components: [{"name": "sqlserver"}]
+        labels: ["${jiraTaskLabel}", "sqlconcord"]
+        customFieldsTypeFieldAttr:
+          customfield_10212:
+            value: "Development"
+          customfield_10216:
+            value: "3 - Minor Problem"
+    error:
+      - set:
+          issueId: "undefined"
+      - log: "Error creating JIRA ticket ${issueId}: ${lastError}. Continuing..."
+      - log: "Last error cause: ${lastError.cause}"
+      - log: "Last error message: ${lastError.message}"
+
+  - log: "JIRA Issue ID: ${issueId}"
+
+
+  - call: transitionJIRA
+    in:
+      iraUid: ${jiraconfig.jiraUid}
+      jiraPwd: ${jiraconfig.jiraPwd}
+      jiraIssueId: ${issueId}
+      transitionId: 311
+      jiraComment: "JIRA created, Transitioning to Work In Progress.\n"
+
+
+  - log: "Sending Email to Udo during first stages of rollout"
+  - task: smtp
+    in:
+      mail:
+        from: "utasie@wal-mart.com"
+        to: "utasie@wal-mart.com"
+        subject: "Access request has been raised as part of JIRA: ${issueId}"
+        message: "An access request was initiated by ${argUserName} for access. JIRA Ticket: ${issueId}."
+
+
+  ##### START PROD VALIDATION #######
+  - if: ${argEnvironment == 'Production'}
+    then:
+      - if: ${argCRQ == ''}
+        then:
+          - finalStatus: "A CRQ is required for this PROD request"
+          - throw: "A CRQ is required for this PROD request"
+        else:
+          - call: validateChangeControl
+            in:
+              changeRecordId: ${argCRQ}
+              #error reporting on JIRA
+              iraUid: ${jiraconfig.jiraUid}
+              jiraPwd: ${jiraconfig.jiraPwd}
+              jiraIssueId: ${jiraIssueId}
+  ###### END PROD VALIDATION #######
+
+
+  - if: ${generateTicketOnly == "true"}
+    then:
+      - exit
+
+
+  - set:
+      flowVars:
+        ansible_winrm_kerberos_delegation: True
+        ServerName: ${argServerName}
+        Database: "${argDatabase}"
+        Environment: "${argEnvironment}"
+        crqNumber: "${argCRQ}"
+        JiraTicket: ${issueId}
+        initiatorId: ${argUserName}
+        Task: ${requestTask}
+        Authentication: ${argAuthentication}
+        Login: ${argLogin}
+        Password: ${encryptedtext}
+        ResetLogin: ${argResetLogin}
+        OldPassword: ${encryptedOldPassword}
+        NewPassword: ${encryptedNewPassword}
+        access: "${roles}"
+        alertEmail: ${argAlertEmail}
+        LinkedServerName : ${argLinkedServerName}
+        #login_user: 'homeoffice.wal-mart.com\svcSQLAutomation'
+        #login_password: ${crypto.exportAsString('sqlserver', 'svcSQLAutomationPass', null)}
+        login_password: ${crypto.decryptString("Jh2FXOsIEfEZSMMRG2XVRo4puiD5KoMoFZdFrrDma6o=")}
+        login_user: "svcsqlbuild"
+        dbaInventoryHost: SQLDBAINVENTORY.HOMEOFFICE.WAL-MART.COM
+        tgtPort: 14481
+        autocommit: True
+        as_dict: True
+        jumpBox: 'phont55103usa.homeoffice.wal-mart.com'
+      myCreds:
+       #username: "svcSQLAutomation@HOMEOFFICE.WAL-MART.COM"
+       #password: ${crypto.exportAsString('sqlserver', 'svcSQLAutomationPass', null)}
+        password: ${crypto.decryptString("Jh2FXOsIEfEZSMMRG2XVRo4puiD5KoMoFZdFrrDma6o=")}
+        username: "svcsqlbuild@HOMEOFFICE.WAL-MART.COM"
+
+  - log: "fowvars access ${flowVars.access}"
+  - log: "fowvars Database ${flowVars.Database}"
+
+  - call: ansibleRunPlaybook
+    in:
+      ansibleArgs:
+        playbook:  "ansible/playbooks/accessManagementPB.yml"
+        inventory:
+          jumpBox:
+            hosts:
+              - ${flowVars.jumpBox}
+            vars: ${ansibleConfig.vars}
+          remote:
+            hosts:
+              - ${flowVars.ServerName}
+            vars: ${ansibleConfig.vars}
+        extraVars: ${flowVars}
+        enableLogFiltering: true
+        outVars:
+          - "queryOut"
+    #out: flowResults
+    error:
+    - throw: ${lastError}
+    - task: smtp
+      in:
+        mail:
+          from: "utasie@wal-mart.com"
+          to: "${argUserName}@wal-mart.com"
+          subject: "${ServerName} - Access Request Failed"
+          message: "SQL installation failed. Please check Concord logs for more information.\n
+                    https://concord.prod.walmart.com/#/process/${txId}/log "
+
+  - set:
+      runbookOutput: ${queryOut[flowVars.jumpBox]['stdout']}
+
+  - log: "runbookOutput: ${runbookOutput}"
+
+##########################################################################################################################
+################################################# JIRA conditions ########################################################
+##########################################################################################################################
+  # Reset JIRA variables
+  - set:
+      transitionId: ${null}
+      jiraComment: ${null}
+
+  ## For the events that leave the JIRA ticket open ##
+  - if: ${runbookOutput.contains("ExitStatement-Open")}
+    then:
+      - if: ${runbookOutput.contains("ExitStatement-Open Catch Block::")}
+        then:
+          - set:
+              jiraComment: "${jiraComment}\nAn issue occured. Please hang on for DBA assistance\n"
+              finalStatus: "An issue occured. Please hang on for DBA assistance"
+          - log: "Catch Block: Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("ExitStatement-Open Production::")}
+        then:
+          - set: 
+              jiraComment: "${jiraComment}\nThis is a Server in Production. As such, you will need to create a CRQ for this activity. The next available DBA will be assigned to this ticket.\n
+              \n \n
+              \n*+To raise a CRQ:+*
+              \n1. Create a change control on ServiceNow using the link:- http://wmlink/servicenow
+              \n2. Within the change create a task for -> Strati-AF-SQLServer
+              \n3. Add Group Approver -> Strati - AF - SQLServer - Approvers
+              "
+              finalStatus: "This is a Production requet. A DBA will be assigned to assist on the ticket"
+          - log: "Production Exception: Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("ExitStatement-Open NotOnline::")}
+        then:
+          - set:
+              jiraComment: "${jiraComment}\n SQL Services unavailable on one or more associated servers for this request.. Hang on for DBA assistance.\n"
+              finalStatus: "failed - SQL Services unavailable on one or more associated servers for this request. Hang on for DBA assistance."
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - set:
+          jiraComment: "${jiraComment}\nDX Status - https://console.dx.walmart.com/firstcontact/concordstatus?instanceId=${txId}\n\n Concord Log id: https://concord.prod.walmart.com/#/process/${txId}/log"
+
+      - log: "Final Status: ${finalStatus}"
+
+      - try:
+        - task: jira
+          in:
+            action: addComment
+            userId: ${jiraconfig.jiraUid}
+            password: ${jiraconfig.jiraPwd}
+            issueKey: ${issueId}
+            comment: ${jiraComment}
+        error:
+          - log: ${jiraComment}
+          - log: "Failed to add comment: ${lastError}"
+          - log: "Last error cause: ${lastError.cause}"
+          - log: "Last error message: ${lastError.message}"
+
+      - throw: 'ExitStatement-Open detected. Throwing error'
+
+    ## For the events that close the JIRA ticket ##
+    else:
+      - if: ${runbookOutput.contains("Success::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\nYour request has successfully been processed. Closing Ticket.\n"
+              finalStatus: "Successful"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("NoRoleAddNeeded::") && requestTask != "new"} # dont return incase of orphan users
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\nRole(s) requested already exists. No database role added\n"
+              finalStatus: "Role(s) requested already exists. No database role added"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("ExitStatement-ServerName::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\nServer Name was not found. Please re-enter a valid server name\n"
+              finalStatus: "failed - Server Name was not found"
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("ExitStatement-NoAccess::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\n Initiator [${argUserName}] does not have access on this server. We cannot proceed with request.\n"
+              finalStatus: "failed - Initiator [${argUserName}] does not have access on this server. We cannot proceed with request."
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("ExitStatement-ModifyLoginExists::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\n The login to modify does not exist on server. We cannot proceed with request.\n"
+              finalStatus: "failed - The login to modify does not exist on server. We cannot proceed with request."
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("ExitStatement-EnvMatch::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\n  ${argServerName} does not show in our inventory as a ${argEnvironment} server. Please select the correct environment when you request access.\n"
+              finalStatus: "failed - ${argServerName} does not show in our inventory as a ${argEnvironment} server. Please select the correct environment when you request access."
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("ExitStatement-Close::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\n An issue occured. One or more of your inputs need to be validated. Check if servername, database, credentials are correct.\n"
+              finalStatus: "failed - validate your inputs"
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("Please note that we do not grant access to individual IDs")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\n Access cannot be granted to individual IDs. Provide a valid AD Group or service account and try again. \n"
+              finalStatus: "failed - Access cannot be granted to individual IDs. Provide a valid AD Group or service account and try again"
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("Excluded DB-Close::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\nAccess cannot be granted to the DB selected as it is a system database.\n"
+              finalStatus: "failed - Access will NOT be granted to a system database"
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("DBnotFound::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\nThe database you entered does not exist on the server. Please check and re-enter a valid database\n"
+              finalStatus: "failed - Database Not Found"
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("The password does not meet the operating system policy requirements")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\nLogin creation failed. Please submit again using a strong password.\n"
+              finalStatus: "failed - Login creation failed due to weak password. Please submit again using a strong password"
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - if: ${runbookOutput.contains("ExitStatement-PasswordMatch::")}
+        then:
+          - set:
+              transitionId: 321
+              jiraComment: "${jiraComment}\nCurrent password for existing user did not match. Please ensure you have the right password for the user.\n"
+              finalStatus: "failed - current password is incorrect"
+              throwError: "yes"
+          - log: "Logging JIRA comments::\n ${jiraComment}"
+
+      - set:
+          transitionId: 321
+          jiraComment: "${jiraComment}\nDX Status - https://console.dx.walmart.com/firstcontact/concordstatus?instanceId=${txId}\n\n Concord Log id: https://concord.prod.walmart.com/#/process/${txId}/log"
+
+      - call: transitionJIRA
+        in:
+          iraUid: ${jiraconfig.jiraUid}
+          jiraPwd: ${jiraconfig.jiraPwd}
+          jiraIssueId: ${issueId}
+          transitionId: ${transitionId}
+          jiraComment: ${jiraComment}
+
+  - log: "Final Status: ${finalStatus}"
+
+  # Reset JIRA variables
+  - set:
+      transitionId: ${null}
+      jiraComment: ${null}
+
+  # If Return Code for Ansible Powerhell task is not 0 or throwError is defined above for conditions that close JIRA, THROW below error
+  - if: ${queryOut[flowVars.jumpBox]['rc'] != 0 || throwError == "yes"}
+    then:
+      - set:
+          jiraComment: "${jiraComment}\nRequest was not completed successfully\n\n Concord Log id: https://concord.prod.walmart.com/#/process/${txId}/log\n"
+      - log: "Logging JIRA comments::\n ${jiraComment}"
+      - try:
+        - task: jira
+          in:
+            action: addComment
+            userId: ${jiraconfig.jiraUid}
+            password: ${jiraconfig.jiraPwd}
+            issueKey: ${issueId}
+            comment: ${jiraComment}
+        error:
+          - log: ${jiraComment}
+          - log: "Failed to add comment: ${lastError}"
+          - log: "Last error cause: ${lastError.cause}"
+          - log: "Last error message: ${lastError.message}"
+
+      - throw: 'FAILURE OCCURED WHILE EXECUTING PLAYBOOK. If there is no prior error in logs, please reach out to DBA team to investigate failure'
+
+
+
+##############################################################################################################################
+################################################# END JIRA conditions ########################################################
+##############################################################################################################################
+
+
+  #- task: smtp
+  #  in:
+  #    mail:
+  #      from: "utasie@wal-mart.com"
+  #      to: "${initiator.username}@wal-mart.com"
+  #      subject: "${ServerName} - SQL Install Completed"
+  #      message: "${jiraconfig.jiraDescription} \n\n\n
+  #          Please check Concord logs for more information.\n
+  #          https://concord.prod.walmart.com/#/process/${txId}/log "

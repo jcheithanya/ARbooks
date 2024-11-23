@@ -1,0 +1,20 @@
+
+-- 1. Check SQL Agent status on sever 
+
+DECLARE @agent NVARCHAR(512);
+SELECT @agent = COALESCE(N'SQLAgent$' + CONVERT(SYSNAME, SERVERPROPERTY('InstanceName')), 
+  N'SQLServerAgent');
+EXEC master.dbo.xp_servicecontrol 'QueryState', @agent;
+
+-- 2. Check SQL Agent status on sever 
+
+IF EXISTS (  SELECT 1 
+             FROM master.dbo.sysprocesses 
+             WHERE program_name = N'SQLAgent - Generic Refresher')
+BEGIN
+    SELECT @@SERVERNAME AS 'InstanceName', 1 AS 'SQLServerAgentRunning'
+END
+ELSE 
+BEGIN
+    SELECT @@SERVERNAME AS 'InstanceName', 0 AS 'SQLServerAgentRunning'
+END 

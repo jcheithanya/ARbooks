@@ -1,0 +1,12 @@
+https://www.sqlshack.com/all-about-latches-in-sql-server/
+
+
+
+
+https://blogs.msdn.microsoft.com/blogdoezequiel/2012/09/18/sql-swiss-army-knife-11-1-locking-blocking-and-active-transactions/
+
+
+https://blogs.msdn.microsoft.com/blogdoezequiel/2013/05/23/pagelatch_ex-waits-and-heavy-inserts/
+
+
+https://www.sqlskills.com/blogs/paul/announcing-the-comprehensive-sql-server-wait-types-and-latch-classes-library/

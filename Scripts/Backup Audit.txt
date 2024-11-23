@@ -1,0 +1,31 @@
+-- SQL Server 2000/2005/2008 Backup audit Script--------
+
+set nocount on
+go
+DECLARE @counter SMALLINT
+DECLARE @dbname VARCHAR(100)
+DECLARE @db_bkpdate_Full varchar(100)
+DECLARE @db_bkpdate_Diff varchar(100)
+DECLARE @db_bkpdate_TLog varchar(100)
+DECLARE @svr_name varchar(100)
+
+
+SELECT @counter=MAX(dbid) FROM master..sysdatabases
+CREATE TABLE #backup_details (ServerName varchar(100),DatabaseName varchar(100),
+	BkpDate_Full varchar(20) NULL,BkpDate_Diff varchar(20) NULL,BkpDate_Tlog varchar(20) NULL)
+select @svr_name = CAST(SERVERPROPERTY('ServerName')AS sysname)
+WHILE @counter > 0
+BEGIN
+/* Need to re-initialize all variables*/
+Select @dbName = null , @db_bkpdate_Full = null ,@db_bkpdate_Diff = null ,@db_bkpdate_Tlog = null 
+select @dbname = name from master..sysdatabases where dbid = @counter
+select @db_bkpdate_Full = max(backup_start_date) from msdb..backupset where database_name = @dbname and type='D'
+select @db_bkpdate_Diff = max(backup_start_date) from msdb..backupset where database_name = @dbname and type='I'
+select @db_bkpdate_Tlog = max(backup_start_date) from msdb..backupset where database_name = @dbname and type='L'
+insert into #backup_details select @svr_name,@dbname,@db_bkpdate_Full,@db_bkpdate_Diff, @db_bkpdate_Tlog--,@backupsize,@status,@filepath,@fileavailable
+set @counter = @counter - 1
+END
+select * from #backup_details where databasename not in ('tempdb','northwind','pubs')
+drop table #backup_details
+set nocount off
+go

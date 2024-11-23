@@ -1,0 +1,18 @@
+
+ALTER DATABASE Database_Name
+SET ENCRYPTION OFF;
+GO
+
+---drop encrption key
+
+USE DatabaseName
+GO
+DROP DATABASE ENCRYPTION KEY
+GO
+
+USE Master;
+GO
+
+drop CERTIFICATE L0dwsql04_TDE_Cert
+
+drop masterkey;

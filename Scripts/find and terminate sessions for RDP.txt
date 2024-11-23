@@ -1,0 +1,5 @@
+query session /server:servername
+reset session [ID] /server:servername
+Just replace [ID] with the id from the last step and hit enter. There are NO BRACKETS around the ID. 
+That’s it you will now be able to log in to your server remotely.
+"TERMINAL SERVER HAS EXCEEDED THE MAXIMUM NUMBER OF ALLOWED CONNECTIONS"

@@ -1,0 +1,133 @@
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+CREATE PROCEDURE sp_script_login
+	@login_name sysname = NULL
+,	@DropExisting bit = 0
+AS
+set nocount on
+declare
+	@name    sysname
+,	@xstatus int
+,	@binpwd  varbinary (256)
+,	@txtpwd  sysname
+,	@OutputString  varchar (256)
+,	@SID_varbinary varbinary(85)
+,	@SID_string varchar(256)
+
+declare @SvrPerms table (
+	Permission varchar(20)
+,	xstatus int )
+
+insert @SvrPerms
+select 'sysadmin' , 16
+union all
+select 'securityadmin' , 32
+union all
+select  'serveradmin' , 64
+union all
+select  'setupadmin' , 128
+union all
+select  'processadmin' , 256
+union all
+select  'diskadmin' , 512
+union all
+select  'dbcreator' , 1024
+union all
+select  'bulkadmin' , 4096
+
+IF (@login_name IS NULL)
+begin
+ DECLARE login_curs CURSOR FOR SELECT sid, name, xstatus, password FROM master..sysxlogins WHERE srvid IS NULL AND name <> 'sa'
+end
+
+ELSE
+begin
+ DECLARE login_curs CURSOR FOR SELECT sid, name, xstatus, password FROM master..sysxlogins WHERE srvid IS NULL AND name = @login_name
+end
+
+OPEN login_curs
+FETCH NEXT FROM login_curs INTO @SID_varbinary, @name, @xstatus, @binpwd
+
+SET @OutputString = '/* sp_script_login script '
+PRINT @OutputString
+SET @OutputString = '** Generated '  + CONVERT (varchar, GETDATE()) + ' on ' + @@SERVERNAME + ' */'
+PRINT @OutputString
+PRINT ''
+PRINT 'DECLARE @pwd sysname'
+WHILE (@@fetch_status = 0)
+BEGIN
+	PRINT ''
+	SET @OutputString = '-- Login: ' + @name
+	PRINT @OutputString
+	SET @OutputString = 'IF not exists(select 1 from master.dbo.syslogins where name='+char(39)+@name+char(39)+' and '+cast(@DropExisting as varchar)+'=0)'
+	PRINT @OutputString
+	SET @OutputString = 'begin'
+	PRINT @OutputString
+
+	-- NT authenticated account/group
+	IF (@xstatus & 4) = 4
+	BEGIN
+		IF (@xstatus & 1) = 1
+		BEGIN -- NT login is denied access
+			SET @OutputString = char(9)+'EXEC master..sp_denylogin ''' + @name + ''''
+			PRINT @OutputString
+		end
+		ELSE
+		BEGIN -- NT login has access
+			SET @OutputString = char(9)+'EXEC master..sp_grantlogin ''' + @name + ''''
+			PRINT @OutputString
+		END
+	END
+
+   -- SQL Server authentication
+	ELSE
+	BEGIN
+		EXEC sp_hexadecimal @binpwd, @txtpwd OUT
+		IF (@xstatus & 2048) = 2048
+		begin
+			SET @OutputString = char(9)+'SET @pwd = CONVERT (varchar(256), ' + @txtpwd + ')'
+		end
+		ELSE
+		begin
+			SET @OutputString = char(9)+'SET @pwd = CONVERT (varbinary(256), ' + @txtpwd + ')'
+		end
+
+		PRINT @OutputString
+		EXEC sp_hexadecimal @SID_varbinary,@SID_string OUT
+		SET @OutputString = char(9)+'if '+cast(@DropExisting as varchar)+'=1'
+		PRINT @OutputString
+		SET @OutputString = char(9)+'begin'
+		PRINT @OutputString
+		SET @OutputString = char(9)+char(9)+'exec sp_droplogin '+char(39)+@name+char(39)
+		PRINT @OutputString
+		SET @OutputString = char(9)+'end'
+		PRINT @OutputString
+		select @OutputString = char(9)+'EXEC master..sp_addlogin '+char(39) + @name +char(39)+', '+case when @binpwd is null then 'NULL' else '@pwd' end+', @sid = ' + @SID_string + ', @encryptopt = '+char(39)+'skip_encryption'+char(39)
+
+		PRINT @OutputString
+
+		set @OutputString=''
+		select @OutputString =char(9)+'EXEC sp_addsrvrolemember '+char(39)+@name+char(39)+','+char(39)+p.Permission+char(39)
+		from sysxlogins l
+		join @SvrPerms p on p.xstatus&l.xstatus=p.xstatus
+		where l.name=@name
+		
+		PRINT @OutputString
+
+	END
+  print 'END'
+ 	FETCH NEXT FROM login_curs INTO @SID_varbinary, @name, @xstatus, @binpwd
+END
+
+CLOSE login_curs
+DEALLOCATE login_curs
+
+GO
+SET QUOTED_IDENTIFIER OFF 
+GO
+SET ANSI_NULLS ON 
+GO
+

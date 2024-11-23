@@ -1,0 +1,4 @@
+backup certificate TDE_Cert to file='C:\tde_cert.cert' 
+
+with private key
+( file='c:\tdekey.pvk', encryption by password='L02dwsq04')

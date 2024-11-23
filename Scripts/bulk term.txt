@@ -1,0 +1,89 @@
+if @@version like '%2000%'
+begin 
+	select 
+	convert(nvarchar(100),@@servername) as Servername, 
+ 	convert(nvarchar(100), sl.name) as Userloginid, 
+	' alter login '+ quotename(convert(nvarchar(100), sl.name)) +' disable' as SQLQuery 
+	from master..syslogins sl 
+ 	where 	
+	sl.name like 'Jennifer' or sl.name like '%Rule%' or sl.name like '%JERULE%' or sl.name like 'DRESSBARN\RuleJ' or 
+	sl.name like 'Cassie' or sl.name like '%Moritz%' or sl.name like '%LBR0585%' or sl.name like 'DRESSBARN\MoritzC' or 
+	sl.name like 'Sajah' or sl.name like '%Carter%' or sl.name like '%SCarter%' or sl.name like 'DRESSBARN\CarterS' or 
+	sl.name like 'Lisa' or sl.name like '%Liu%' or sl.name like '%LiuL%' or sl.name like 'DRESSBARN\LiuL' or 
+	sl.name like 'Judy' or sl.name like '%Evans%' or sl.name like '%EvansJ%' or sl.name like 'DRESSBARN\EvansJ' or 
+	sl.name like 'Joanne' or sl.name like '%Andiorio%' or sl.name like '%AndioriJ%' or sl.name like 'DRESSBARN\AndioriJ' or 
+	sl.name like 'Gabriella' or sl.name like '%Gambone%' or sl.name like '%GGAMBO%' or sl.name like 'DRESSBARN\GamboneG' or 
+	sl.name like 'Anthony' or sl.name like '%Grider%' or sl.name like '%mauaxg1%' or sl.name like 'DRESSBARN\GriderA' or 
+	sl.name like 'John' or sl.name like '%Kranz%' or sl.name like '%maujxk2%' or sl.name like 'DRESSBARN\KranzJ' or 
+	sl.name like 'Jill' or sl.name like '%Olson%' or sl.name like '%JOLSON1%' or sl.name like 'DRESSBARN\OlsonJ' or 
+	sl.name like 'Taralea' or sl.name like '%Solomon%' or sl.name like '%mautls%' or sl.name like 'DRESSBARN\SolomonT' or 
+	sl.name like 'Nicholas' or sl.name like '%Mugavin%' or sl.name like '%NMUGAVIN%' or sl.name like 'DRESSBARN\MugavinN' or 
+	sl.name like 'Dwayne' or sl.name like '%Smith%' or sl.name like '%DSmith3%' or sl.name like 'DRESSBARN\SmithD' or 
+	sl.name like 'Rachel' or sl.name like '%Yeung%' or sl.name like '%RYeung%' or sl.name like 'DRESSBARN\YeungR' or 
+	sl.name like 'Nettie' or sl.name like '%Man%' or sl.name like '%NMan%' or sl.name like 'DRESSBARN\ManN' or 
+	sl.name like 'Kathy' or --sl.name like '%Ng%' or 
+	sl.name like '%KNg%' or sl.name like 'DRESSBARN\NgK' or 
+	sl.name like 'Stella' or --sl.name like '%Ng%' or 
+	sl.name like '%SNg%' or sl.name like 'DRESSBARN\NgS' or 
+	sl.name like 'Venus' or sl.name like '%Yiu%' or sl.name like '%VYiu%' or sl.name like 'DRESSBARN\YiuV' or 
+	sl.name like 'Daisy' or sl.name like '%Lo%' or sl.name like '%HKNG688%' or sl.name like 'DRESSBARN\LoD' or 
+	sl.name like 'Onyx' or sl.name like '%Kong%' or sl.name like '%OKong%' or sl.name like 'DRESSBARN\KongO' or 
+	sl.name like 'Fanny' or sl.name like '%Fung%' or sl.name like '%FFung%' or sl.name like 'DRESSBARN\FungF' or 
+	sl.name like 'Kate' or sl.name like '%Kwan%' or sl.name like '%KKwan%' or sl.name like 'DRESSBARN\KwanK' or 
+	sl.name like 'Judy' or sl.name like '%Cheung%' or sl.name like '%JCheung%' or sl.name like 'DRESSBARN\CheungJ' or 
+	sl.name like 'Maggie' or --sl.name like '%Li%' or 
+	sl.name like '%HKNG407%' or sl.name like 'DRESSBARN\LiM' or 
+	sl.name like 'Prem' or sl.name like '%Angadi%' or sl.name like '%PANGADI%' or sl.name like 'DRESSBARN\AngadiP' or 
+	sl.name like 'Michael' or sl.name like '%Letellier%' or sl.name like '%MLetellier%' or sl.name like 'DRESSBARN\LetelliM' or 
+	sl.name like 'Bhupendra' or sl.name like '%Pandey%' or sl.name like '%BPANDEY%' or sl.name like 'DRESSBARN\PandeyB' or 
+	sl.name like 'Pratik' or sl.name like '%Vatandar%' or sl.name like '%PVatandar%' or sl.name like 'DRESSBARN\VatandaP' or 
+	sl.name like 'Sameer' or sl.name like '%Mattoo%' or sl.name like '%SMATTO%' or sl.name like 'DRESSBARN\MattooS' or 
+	sl.name like 'Lisa' or sl.name like '%McCullough%' or sl.name like '%LMCCULLOUGH%' or sl.name like 'DRESSBARN\McCulloL' 
+end 
+else 
+begin  
+	select 
+		convert(nvarchar(100),@@servername) as Servername, 
+		convert(nvarchar(100), sl.name) as Userloginid, 
+		' alter login '+ quotename(convert(nvarchar(100), sl.name)) +' disable' as SQLQuery, 
+		pr.type_desc, pr.is_disabled  
+	from master..syslogins sl   
+		inner join  
+		sys.server_principals pr  
+		on sl.sid =pr.sid   
+	where 	
+	sl.name like 'Jennifer' or sl.name like '%Rule%' or sl.name like '%JERULE%' or sl.name like 'DRESSBARN\RuleJ' or 
+	sl.name like 'Cassie' or sl.name like '%Moritz%' or sl.name like '%LBR0585%' or sl.name like 'DRESSBARN\MoritzC' or 
+	sl.name like 'Sajah' or sl.name like '%Carter%' or sl.name like '%SCarter%' or sl.name like 'DRESSBARN\CarterS' or 
+	sl.name like 'Lisa' or sl.name like '%Liu%' or sl.name like '%LiuL%' or sl.name like 'DRESSBARN\LiuL' or 
+	sl.name like 'Judy' or sl.name like '%Evans%' or sl.name like '%EvansJ%' or sl.name like 'DRESSBARN\EvansJ' or 
+	sl.name like 'Joanne' or sl.name like '%Andiorio%' or sl.name like '%AndioriJ%' or sl.name like 'DRESSBARN\AndioriJ' or 
+	sl.name like 'Gabriella' or sl.name like '%Gambone%' or sl.name like '%GGAMBO%' or sl.name like 'DRESSBARN\GamboneG' or 
+	sl.name like 'Anthony' or sl.name like '%Grider%' or sl.name like '%mauaxg1%' or sl.name like 'DRESSBARN\GriderA' or 
+	sl.name like 'John' or sl.name like '%Kranz%' or sl.name like '%maujxk2%' or sl.name like 'DRESSBARN\KranzJ' or 
+	sl.name like 'Jill' or sl.name like '%Olson%' or sl.name like '%JOLSON1%' or sl.name like 'DRESSBARN\OlsonJ' or 
+	sl.name like 'Taralea' or sl.name like '%Solomon%' or sl.name like '%mautls%' or sl.name like 'DRESSBARN\SolomonT' or 
+	sl.name like 'Nicholas' or sl.name like '%Mugavin%' or sl.name like '%NMUGAVIN%' or sl.name like 'DRESSBARN\MugavinN' or 
+	sl.name like 'Dwayne' or sl.name like '%Smith%' or sl.name like '%DSmith3%' or sl.name like 'DRESSBARN\SmithD' or 
+	sl.name like 'Rachel' or sl.name like '%Yeung%' or sl.name like '%RYeung%' or sl.name like 'DRESSBARN\YeungR' or 
+	sl.name like 'Nettie' or sl.name like '%Man%' or sl.name like '%NMan%' or sl.name like 'DRESSBARN\ManN' or 
+	sl.name like 'Kathy' or --sl.name like '%Ng%' or 
+	sl.name like '%KNg%' or sl.name like 'DRESSBARN\NgK' or 
+	sl.name like 'Stella' or --sl.name like '%Ng%' or 
+	sl.name like '%SNg%' or sl.name like 'DRESSBARN\NgS' or 
+	sl.name like 'Venus' or sl.name like '%Yiu%' or sl.name like '%VYiu%' or sl.name like 'DRESSBARN\YiuV' or 
+	sl.name like 'Daisy' or --sl.name like '%Lo%' or 
+	sl.name like '%HKNG688%' or sl.name like 'DRESSBARN\LoD' or 
+	sl.name like 'Onyx' or sl.name like '%Kong%' or sl.name like '%OKong%' or sl.name like 'DRESSBARN\KongO' or 
+	sl.name like 'Fanny' or sl.name like '%Fung%' or sl.name like '%FFung%' or sl.name like 'DRESSBARN\FungF' or 
+	sl.name like 'Kate' or sl.name like '%Kwan%' or sl.name like '%KKwan%' or sl.name like 'DRESSBARN\KwanK' or 
+	sl.name like 'Judy' or sl.name like '%Cheung%' or sl.name like '%JCheung%' or sl.name like 'DRESSBARN\CheungJ' or 
+	sl.name like 'Maggie' or --sl.name like '%Li%' or 
+	sl.name like '%HKNG407%' or sl.name like 'DRESSBARN\LiM' or 
+	sl.name like 'Prem' or sl.name like '%Angadi%' or sl.name like '%PANGADI%' or sl.name like 'DRESSBARN\AngadiP' or 
+	sl.name like 'Michael' or sl.name like '%Letellier%' or sl.name like '%MLetellier%' or sl.name like 'DRESSBARN\LetelliM' or 
+	sl.name like 'Bhupendra' or sl.name like '%Pandey%' or sl.name like '%BPANDEY%' or sl.name like 'DRESSBARN\PandeyB' or 
+	sl.name like 'Pratik' or sl.name like '%Vatandar%' or sl.name like '%PVatandar%' or sl.name like 'DRESSBARN\VatandaP' or 
+	sl.name like 'Sameer' or sl.name like '%Mattoo%' or sl.name like '%SMATTO%' or sl.name like 'DRESSBARN\MattooS' or 
+	sl.name like 'Lisa' or sl.name like '%McCullough%' or sl.name like '%LMCCULLOUGH%' or sl.name like 'DRESSBARN\McCulloL' 
+end 

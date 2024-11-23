@@ -1,0 +1,1 @@
+https://www.progress.com/documentation/datadirect-connectors?ds=apache-cassandra&interface=odbc
